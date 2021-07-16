@@ -1,4 +1,12 @@
+const db = require('../../data/db-config');
+
 function find() { // EXERCISE A
+  return db("schemes")
+    .leftJoin("steps", "steps.scheme_id", "schemes.scheme_id")
+    .select("schemes.*", "steps.step_number")
+    .count("steps.step_id as number_of_steps")
+    .groupBy("schemes.scheme_id")
+    .orderBy("schemes.scheme_id", "asc")
   /*
     1A- Study the SQL query below running it in SQLite Studio against `data/schemes.db3`.
     What happens if we change from a LEFT join to an INNER join?
@@ -17,7 +25,32 @@ function find() { // EXERCISE A
   */
 }
 
-function findById(scheme_id) { // EXERCISE B
+async function findById(scheme_id) { // EXERCISE B
+
+  const rows = await db("schemes")
+  .select("schemes.scheme_name", "steps.*")
+  .where("schemes.scheme_id", "=", scheme_id)
+  .leftJoin("steps","steps.scheme_id","schemes.scheme_id")
+  .orderBy("steps.step_number", "asc")
+
+  const steps = rows.map(row => {
+      const result = (row.step_id === null)
+        ? []
+        : {
+            "step_id": row["step_id"],
+            "step_number": row["step_number"],
+            "instructions": row["instructions"]
+        }
+    return result
+  })
+
+  const cleanScheme = {
+    "scheme_id": parseInt(scheme_id),
+    "scheme_name": rows[0]["scheme_name"],
+    "steps": steps
+  }
+  return cleanScheme 
+
   /*
     1B- Study the SQL query below running it in SQLite Studio against `data/schemes.db3`:
 
@@ -85,7 +118,17 @@ function findById(scheme_id) { // EXERCISE B
   */
 }
 
-function findSteps(scheme_id) { // EXERCISE C
+async function findSteps(scheme_id) { // EXERCISE C
+
+  return db("schemes")
+    .leftJoin("steps", "steps.scheme_id", "schemes.scheme_id")
+    .select(
+      "steps.step_id",
+      "steps.step_number",
+      "steps.instructions",
+      "schemes.scheme_name")
+    .where("schemes.scheme_id", "=", scheme_id)
+    .orderBy("steps.step_number")
   /*
     1C- Build a query in Knex that returns the following data.
     The steps should be sorted by step_number, and the array
@@ -108,13 +151,26 @@ function findSteps(scheme_id) { // EXERCISE C
   */
 }
 
-function add(scheme) { // EXERCISE D
+async function add(scheme) { // EXERCISE D
+  const rows = await db("schemes").insert({
+    "scheme_name": scheme.scheme_name
+  })
+  return db("schemes")
+    .where(("schemes.scheme_name", "=", scheme.scheme_name))
   /*
     1D- This function creates a new scheme and resolves to _the newly created scheme_.
   */
 }
 
 function addStep(scheme_id, step) { // EXERCISE E
+  db("steps").insert({
+    "step_number": step.step_number,
+    "instructions": step.instructions,
+    "scheme_id": scheme_id
+  }).then(() => {
+    return db("steps")
+      .select("steps.step_number", "steps.instructions", "steps.scheme_id")
+  })
   /*
     1E- This function adds a step to the scheme with the given `scheme_id`
     and resolves to _all the steps_ belonging to the given `scheme_id`,
